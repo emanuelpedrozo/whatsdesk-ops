@@ -97,7 +97,7 @@ jobs:
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           if [ -n "${SSH_PRIVATE_KEY_B64:-}" ]; then
-            printf "%s" "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_rsa
+            printf "%s" "${SSH_PRIVATE_KEY_B64}" | tr -d '\r\n ' | base64 -d | tr -d '\r' > ~/.ssh/id_rsa
           elif [ -n "${SSH_PRIVATE_KEY:-}" ]; then
             printf "%s" "${SSH_PRIVATE_KEY}" | tr -d '\r' > ~/.ssh/id_rsa
           else
@@ -105,6 +105,7 @@ jobs:
             exit 1
           fi
           chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa >/dev/null
           ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
 
           ssh -o IdentitiesOnly=yes -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<EOF
