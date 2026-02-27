@@ -97,15 +97,16 @@ jobs:
           chmod 700 ~/.ssh
           printf "%s" "${SSH_PRIVATE_KEY}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa >/dev/null
           ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
 
           ssh -o IdentitiesOnly=yes -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<EOF
           set -euo pipefail
           cd "${TARGET_PATH}"
 
-          if [ -n "$(git status --porcelain)" ]; then
+          if [ -n "\$(git status --porcelain)" ]; then
             echo "Local changes detected. Creating auto-stash before deploy."
-            git stash push --include-untracked -m "gha-autostash-$(date +%s)"
+            git stash push --include-untracked -m "gha-autostash-\$(date +%s)"
           fi
 
           git fetch origin main
