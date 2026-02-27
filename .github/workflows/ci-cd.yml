@@ -81,12 +81,13 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
 
-          if [ -z "${SSH_HOST}" ] || [ -z "${SSH_USER}" ] || [ -z "${SSH_PRIVATE_KEY}" ]; then
-            echo "Missing SSH secrets. Configure SSH_HOST, SSH_USER and SSH_PRIVATE_KEY."
+          if [ -z "${SSH_HOST}" ] || [ -z "${SSH_USER}" ]; then
+            echo "Missing SSH secrets. Configure SSH_HOST and SSH_USER."
             exit 1
           fi
 
@@ -95,7 +96,14 @@ jobs:
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf "%s" "${SSH_PRIVATE_KEY}" | tr -d '\r' > ~/.ssh/id_rsa
+          if [ -n "${SSH_PRIVATE_KEY_B64:-}" ]; then
+            printf "%s" "${SSH_PRIVATE_KEY_B64}" | base64 -d > ~/.ssh/id_rsa
+          elif [ -n "${SSH_PRIVATE_KEY:-}" ]; then
+            printf "%s" "${SSH_PRIVATE_KEY}" | tr -d '\r' > ~/.ssh/id_rsa
+          else
+            echo "Missing SSH key secret. Configure SSH_PRIVATE_KEY_B64 (recommended) or SSH_PRIVATE_KEY."
+            exit 1
+          fi
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
 
