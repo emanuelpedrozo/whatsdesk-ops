@@ -15,6 +15,25 @@ jobs:
   ci:
     name: Build and Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: crm_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d crm_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crm_ci?schema=public
+      NODE_ENV: test
+      JWT_SECRET: ci-secret
+      WHATSAPP_PROVIDER: mock
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +49,9 @@ jobs:
 
       - name: Generate Prisma client
         run: npm run prisma:generate -w @crm/api
+
+      - name: Run Prisma migrations
+        run: npm run prisma:migrate -w @crm/api
 
       - name: Build API
         run: npm run build -w @crm/api
