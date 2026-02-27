@@ -112,3 +112,51 @@ Implementacao MVP de um sistema web para gestao de atendentes e operacao de aten
   - faca login no painel e clique em **Gerar QR**
   - escaneie no WhatsApp (Aparelhos conectados)
   - status muda para `CONNECTED`
+
+## Deploy em subpath `/whatsdesk` (Nginx)
+1. Em `apps/web/.env.local` (producao):
+   - `NEXT_PUBLIC_API_URL=/whatsdesk/api`
+   - `NEXT_PUBLIC_RT_URL=/whatsdesk/realtime`
+   - `NEXT_BASE_PATH=/whatsdesk`
+2. Rebuild do frontend:
+   - `npm run build -w @crm/web`
+3. Reinicie o PM2 do web:
+   - `pm2 restart whatsdesk-web --update-env`
+4. Nginx (adicionar no mesmo vhost que ja usa `/inventario` e `/financeiro`):
+
+```nginx
+location = /whatsdesk {
+  return 301 /whatsdesk/;
+}
+
+location ^~ /whatsdesk/api/ {
+  rewrite ^/whatsdesk/api/(.*)$ /api/$1 break;
+  proxy_pass http://127.0.0.1:4101;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location ^~ /whatsdesk/realtime/ {
+  rewrite ^/whatsdesk/realtime/(.*)$ /realtime/$1 break;
+  proxy_pass http://127.0.0.1:4101;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location ^~ /whatsdesk/ {
+  proxy_pass http://127.0.0.1:3000;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
