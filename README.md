@@ -160,3 +160,21 @@ location ^~ /whatsdesk/ {
   proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
+
+## CI/CD automatico (GitHub Actions)
+Ao fazer `push` na `main`, o pipeline executa:
+- CI: install, `prisma:generate`, build API/Web e testes da API.
+- CD: deploy no servidor via SSH, build, migrate e restart dos processos PM2.
+
+Arquivo do workflow:
+- `.github/workflows/ci-cd.yml`
+
+Secrets necessarios no GitHub (`Settings > Secrets and variables > Actions`):
+- `SSH_HOST`: IP/host do servidor (ex: `46.225.12.24`)
+- `SSH_PORT`: porta SSH (opcional, padrao `22`)
+- `SSH_USER`: usuario SSH (ex: `root`)
+- `SSH_PRIVATE_KEY`: chave privada SSH usada no acesso ao servidor
+- `DEPLOY_PATH`: caminho do projeto no servidor (opcional, padrao `/opt/whatsdesk-ops`)
+
+Observacao:
+- O deploy reinicia os processos PM2 `whatsdesk-api` e `whatsdesk-web`.
