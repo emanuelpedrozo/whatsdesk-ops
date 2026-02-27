@@ -1,0 +1,15 @@
+{
+  "name": "crm-whatsapp-vendas",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @crm/api & npm run dev -w @crm/web",
+    "dev:api": "npm run dev -w @crm/api",
+    "dev:web": "npm run dev -w @crm/web",
+    "build": "npm run build --workspaces",
+    "test": "npm run test -w @crm/api"
+  }
+}

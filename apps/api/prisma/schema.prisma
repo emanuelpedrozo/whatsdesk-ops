@@ -1,0 +1,349 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  RECEIVED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum OrderStatus {
+  NEW
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  users       User[]
+  permissions RolePermission[]
+  createdAt   DateTime @default(now())
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  name            String
+  passwordHash    String
+  status          UserStatus     @default(ACTIVE)
+  roleId          String
+  departmentId    String?
+  role            Role           @relation(fields: [roleId], references: [id])
+  department      Department?    @relation(fields: [departmentId], references: [id])
+  conversations   Conversation[]
+  assignedDeals   Deal[]
+  auditLogs       AuditLog[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([departmentId])
+}
+
+model WhatsappAccount {
+  id              String         @id @default(cuid())
+  name            String
+  provider        String
+  phoneNumber     String         @unique
+  businessAccount String?
+  isActive        Boolean        @default(true)
+  conversations   Conversation[]
+  messages        Message[]
+  createdAt       DateTime       @default(now())
+}
+
+model Contact {
+  id            String            @id @default(cuid())
+  name          String?
+  phone         String            @unique
+  source        String?
+  address       String?
+  notes         String?
+  preferences   Json?
+  optOutAt      DateTime?
+  conversations Conversation[]
+  tags          ContactTag[]
+  deals         Deal[]
+  orders        Order[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  color       String?
+  contacts    ContactTag[]
+  createdAt   DateTime     @default(now())
+}
+
+model ContactTag {
+  contactId String
+  tagId     String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+}
+
+model Conversation {
+  id                String             @id @default(cuid())
+  whatsappAccountId String
+  contactId         String
+  assignedToId      String?
+  departmentId      String?
+  status            ConversationStatus @default(OPEN)
+  lastMessageAt     DateTime?
+  slaFirstResponseAt DateTime?
+  lastInboundAt     DateTime?
+  metadata          Json?
+  whatsappAccount   WhatsappAccount    @relation(fields: [whatsappAccountId], references: [id])
+  contact           Contact            @relation(fields: [contactId], references: [id])
+  assignedTo        User?              @relation(fields: [assignedToId], references: [id])
+  department        Department?        @relation(fields: [departmentId], references: [id])
+  messages          Message[]
+  deals             Deal[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([contactId])
+  @@index([assignedToId])
+  @@index([departmentId])
+}
+
+model Department {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  isActive      Boolean        @default(true)
+  users         User[]
+  conversations Conversation[]
+  createdAt     DateTime       @default(now())
+}
+
+model Message {
+  id                String           @id @default(cuid())
+  conversationId    String
+  whatsappAccountId String
+  externalMessageId String?
+  direction         MessageDirection
+  type              String
+  content           String?
+  status            MessageStatus
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedReason      String?
+  metadata          Json?
+  conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  whatsappAccount   WhatsappAccount  @relation(fields: [whatsappAccountId], references: [id])
+  attachments       Attachment[]
+  createdAt         DateTime         @default(now())
+
+  @@unique([whatsappAccountId, externalMessageId])
+  @@index([conversationId, createdAt])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  messageId  String
+  fileName   String
+  mimeType   String
+  url        String
+  sizeBytes  Int?
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+model PipelineStage {
+  id         String   @id @default(cuid())
+  name       String
+  position   Int
+  isDefault  Boolean  @default(false)
+  deals      Deal[]
+  createdAt  DateTime @default(now())
+
+  @@unique([name])
+}
+
+model Deal {
+  id                String        @id @default(cuid())
+  title             String
+  contactId         String
+  conversationId    String?
+  assignedToId      String?
+  pipelineStageId   String
+  status            DealStatus    @default(OPEN)
+  valueCents        Int?
+  lostReason        String?
+  contact           Contact       @relation(fields: [contactId], references: [id])
+  conversation      Conversation? @relation(fields: [conversationId], references: [id])
+  assignedTo        User?         @relation(fields: [assignedToId], references: [id])
+  pipelineStage     PipelineStage @relation(fields: [pipelineStageId], references: [id])
+  history           DealStageHistory[]
+  orders            Order[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model DealStageHistory {
+  id              String   @id @default(cuid())
+  dealId          String
+  fromStageId     String?
+  toStageId       String
+  changedByUserId String?
+  changedAt       DateTime @default(now())
+  note            String?
+  deal            Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, changedAt])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  contactId       String
+  dealId          String?
+  conversationId  String?
+  status          OrderStatus @default(NEW)
+  subtotalCents   Int
+  discountCents   Int         @default(0)
+  shippingCents   Int         @default(0)
+  totalCents      Int
+  notes           String?
+  contact         Contact     @relation(fields: [contactId], references: [id])
+  deal            Deal?       @relation(fields: [dealId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([contactId, createdAt])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  sku         String?
+  name        String
+  quantity    Int
+  unitCents   Int
+  totalCents  Int
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  method        String
+  provider      String?
+  amountCents   Int
+  status        PaymentStatus @default(PENDING)
+  reference     String?
+  proofUrl      String?
+  paidAt        DateTime?
+  metadata      Json?
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+}
+
+model AutomationRule {
+  id          String   @id @default(cuid())
+  name        String
+  isActive    Boolean  @default(true)
+  triggerType String
+  conditions  Json
+  actions     Json
+  createdAt   DateTime @default(now())
+  runs        AutomationRun[]
+}
+
+model AutomationRun {
+  id             String   @id @default(cuid())
+  ruleId         String
+  status         String
+  payload        Json?
+  errorMessage   String?
+  executedAt     DateTime @default(now())
+  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model WebhookEvent {
+  id             String   @id @default(cuid())
+  source         String
+  externalEventId String
+  payload        Json
+  processedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  @@unique([source, externalEventId])
+}

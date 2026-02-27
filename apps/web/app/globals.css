@@ -1,0 +1,283 @@
+:root {
+  --bg: #e8f0ed;
+  --panel: #ffffff;
+  --ink: #142024;
+  --line: #d6e2e6;
+  --teal: #0e7c86;
+  --red: #ef4444;
+  --violet: #5b5bd6;
+  --green: #78c25b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background: linear-gradient(180deg, #d8e5df 0%, var(--bg) 60%, #ebf2f0 100%);
+  color: var(--ink);
+}
+
+.ops-page {
+  padding: 18px;
+}
+
+.ops-head h1 {
+  margin: 0;
+  font-size: 44px;
+}
+
+.ops-head p {
+  margin: 6px 0 18px;
+  color: #48606b;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.kpi-grid.secondary {
+  margin-bottom: 14px;
+}
+
+.kpi-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  min-height: 110px;
+}
+
+.kpi-card h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4f5f68;
+}
+
+.kpi-card strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 44px;
+}
+
+.kpi-card.alert {
+  background: var(--red);
+  color: #fff;
+}
+
+.kpi-card.focus {
+  background: var(--violet);
+  color: #fff;
+}
+
+.kpi-card.good {
+  background: var(--green);
+  color: #fff;
+}
+
+.kpi-card.alert h3,
+.kpi-card.focus h3,
+.kpi-card.good h3 {
+  color: #eef9ff;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #edf1f3;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.row-queue {
+  grid-template-columns: 2fr 1.1fr 0.8fr 100px 100px 90px;
+}
+
+.row-queue button {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  background: #1f6f8b;
+  color: #fff;
+}
+
+.row-queue .btn-success {
+  background: #2f9d57;
+}
+
+.row-queue button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row-action button {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: var(--teal);
+  color: #fff;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.toolbar.wrap {
+  flex-wrap: wrap;
+}
+
+.toolbar select {
+  border: 1px solid #c9d5db;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.agent-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 180px;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.agent-form input {
+  border: 1px solid #c9d5db;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.agent-form button {
+  border: none;
+  border-radius: 6px;
+  background: #0e7c86;
+  color: #fff;
+  cursor: pointer;
+}
+
+.small-error {
+  color: #b42318;
+  margin: 8px 0 0;
+}
+
+.small-hint {
+  color: #5b6872;
+  font-size: 13px;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid #e6edf1;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+
+.chat-msg {
+  border-radius: 6px;
+  padding: 8px;
+  background: #f0f6f9;
+}
+
+.chat-msg.out {
+  background: #d9f4ec;
+}
+
+.chat-msg small {
+  display: block;
+  margin-top: 4px;
+  color: #5f6d76;
+}
+
+.reply-form {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 8px;
+}
+
+.reply-form input {
+  border: 1px solid #c9d5db;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.reply-form button,
+.btn-neutral {
+  border: none;
+  border-radius: 6px;
+  background: #19506a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.qr-image {
+  width: 240px;
+  height: 240px;
+  border: 1px solid #d9e3e8;
+  border-radius: 6px;
+  display: block;
+  margin: 8px 0;
+}
+
+@media (max-width: 1100px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ops-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .row-queue {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-form {
+    grid-template-columns: 1fr;
+  }
+
+  .reply-form {
+    grid-template-columns: 1fr;
+  }
+}

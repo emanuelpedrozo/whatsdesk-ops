@@ -1,0 +1,2 @@
+-- This migration is intentionally simplified for repository bootstrap.
+-- Run `prisma migrate dev` to regenerate SQL with exact engine dialect details.
