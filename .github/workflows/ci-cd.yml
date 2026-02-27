@@ -95,11 +95,11 @@ jobs:
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf "%s" "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+          printf "%s" "${SSH_PRIVATE_KEY}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
 
-          ssh -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<EOF
+          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<EOF
           set -euo pipefail
           cd "${TARGET_PATH}"
 
