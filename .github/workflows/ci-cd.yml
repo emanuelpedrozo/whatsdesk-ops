@@ -95,7 +95,10 @@ jobs:
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf "%s" "${SSH_PRIVATE_KEY}" | tr -d '\r' > ~/.ssh/id_rsa
+          KEY_CONTENT="${SSH_PRIVATE_KEY}"
+          KEY_CONTENT="${KEY_CONTENT#\"}"
+          KEY_CONTENT="${KEY_CONTENT%\"}"
+          printf "%b" "${KEY_CONTENT}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keygen -y -f ~/.ssh/id_rsa >/dev/null
           ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
