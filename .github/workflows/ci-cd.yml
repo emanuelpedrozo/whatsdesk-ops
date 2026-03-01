@@ -85,8 +85,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "${SSH_HOST}" ] || [ -z "${SSH_USER}" ]; then
-            echo "Missing SSH secrets. Configure SSH_HOST and SSH_USER."
+          if [ -z "${SSH_HOST}" ] || [ -z "${SSH_USER}" ] || [ -z "${SSH_PRIVATE_KEY}" ]; then
+            echo "Missing SSH secrets. Configure SSH_HOST, SSH_USER and SSH_PRIVATE_KEY."
             exit 1
           fi
 
@@ -97,6 +97,10 @@ jobs:
           chmod 700 ~/.ssh
           printf "%s" "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          if [ "$(wc -c < ~/.ssh/id_rsa)" -lt 100 ]; then
+            echo "SSH_PRIVATE_KEY appears empty or truncated."
+            exit 1
+          fi
           ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
 
           ssh -o IdentitiesOnly=yes -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<EOF
