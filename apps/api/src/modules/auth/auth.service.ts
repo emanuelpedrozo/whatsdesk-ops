@@ -10,19 +10,33 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { role: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        passwordHash: true,
+        roleId: true,
+      },
     });
 
     if (!user) throw new UnauthorizedException('Credenciais invalidas');
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
+    const valid = await bcrypt.compare(password, user.passwordHash).catch(() => false);
     if (!valid) throw new UnauthorizedException('Credenciais invalidas');
+
+    const role = await this.prisma.role.findUnique({
+      where: { id: user.roleId },
+      select: { name: true },
+    });
+    if (!role?.name) {
+      throw new UnauthorizedException('Usuario sem perfil valido');
+    }
 
     const payload = {
       sub: user.id,
       email: user.email,
       name: user.name,
-      role: user.role.name,
+      role: role.name,
     };
 
     const accessToken = await this.jwt.signAsync(payload, {
@@ -37,16 +51,31 @@ export class AuthService {
   }
 
   async me(userId: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         name: true,
         email: true,
         status: true,
-        role: { select: { name: true } },
+        roleId: true,
         department: { select: { id: true, name: true } },
       },
     });
+    if (!user) return null;
+
+    const role = await this.prisma.role.findUnique({
+      where: { id: user.roleId },
+      select: { name: true },
+    });
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      status: user.status,
+      role: role ? { name: role.name } : { name: 'Sem perfil' },
+      department: user.department,
+    };
   }
 }
