@@ -139,7 +139,7 @@ jobs:
           PORT="${SSH_PORT:-22}"
           TARGET_PATH="${DEPLOY_PATH:-/opt/whatsdesk-ops}"
 
-          ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" env TARGET_PATH="${TARGET_PATH}" bash <<'DEPLOY_SCRIPT'
+          ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" env TARGET_PATH="${TARGET_PATH}" bash << 'DEPLOY_SCRIPT'
           set -eu
           cd "${TARGET_PATH}"
 
