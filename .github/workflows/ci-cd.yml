@@ -85,9 +85,20 @@ jobs:
           command_timeout: 30m
           script: |
             set -eu
-            cd "${{ secrets.DEPLOY_PATH }}" || cd /opt/whatsdesk-ops
+            DEPLOY_DIR="${{ secrets.DEPLOY_PATH }}"
+            DEPLOY_DIR="${DEPLOY_DIR:-/opt/whatsdesk-ops}"
+            REPO_URL="git@github.com:${{ github.repository }}.git"
 
             echo "=== Iniciando deploy ==="
+
+            # Verificar se o diretório existe e tem um repositório git
+            if [ ! -d "${DEPLOY_DIR}/.git" ]; then
+              echo "Repositório não encontrado em ${DEPLOY_DIR}. Clonando..."
+              mkdir -p "$(dirname "${DEPLOY_DIR}")"
+              git clone "${REPO_URL}" "${DEPLOY_DIR}"
+            fi
+
+            cd "${DEPLOY_DIR}"
             echo "Diretório: $(pwd)"
             echo "Branch atual: $(git branch --show-current)"
 
