@@ -139,8 +139,8 @@ jobs:
           PORT="${SSH_PORT:-22}"
           TARGET_PATH="${DEPLOY_PATH:-/opt/whatsdesk-ops}"
 
-          ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<'DEPLOY_SCRIPT'
-          set -euo pipefail
+          ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" env TARGET_PATH="${TARGET_PATH}" bash <<'DEPLOY_SCRIPT'
+          set -eu
           cd "${TARGET_PATH}"
 
           echo "=== Iniciando deploy ==="
@@ -188,4 +188,4 @@ jobs:
           pm2 save
 
           echo "=== Deploy concluído com sucesso ==="
-          DEPLOY_SCRIPT
+DEPLOY_SCRIPT
