@@ -20,9 +20,9 @@ export function QRSection({ whatsappAccountId, onRefresh }: QRSectionProps) {
     loadQRSession();
   }, []);
 
-  // Polling quando aguardando QR
+  // Polling enquanto nao conecta, para refletir retries/novo QR automaticamente
   useEffect(() => {
-    if (!qrSession || qrSession.status !== 'WAITING_QR') return;
+    if (!qrSession || qrSession.status === 'CONNECTED') return;
     const timer = setInterval(async () => {
       try {
         const qr = await getJson<QrSession>('/qr/session');

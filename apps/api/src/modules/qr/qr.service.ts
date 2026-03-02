@@ -23,6 +23,7 @@ export class QrService {
   private retryCount = 0;
   private readonly maxRetries = 5;
   private starting = false;
+  private reconnectTimer: NodeJS.Timeout | null = null;
 
   private sock: any = null;
   private currentAccountId: string | null = null;
@@ -52,8 +53,10 @@ export class QrService {
     if (this.starting) return this.getSession();
     this.starting = true;
     try {
-      // Motivo: Limpar auth state anterior para evitar dados corrompidos causando falha
-      await rm(AUTH_DIR, { recursive: true, force: true }).catch(() => undefined);
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
 
       const baileys = await import('@whiskeysockets/baileys');
       const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = baileys;
@@ -122,6 +125,8 @@ export class QrService {
           const reason = lastDisconnect?.error?.message ?? 'Connection closed';
           this.lastError = reason;
           this.status = 'DISCONNECTED';
+          // Motivo: QR anterior expira ao fechar stream; evita escaneamento de QR invalido
+          this.qrDataUrl = null;
           this.updatedAt = new Date().toISOString();
           this.sock = null;
 
@@ -133,7 +138,7 @@ export class QrService {
             this.logger.warn(
               `Tentativa ${this.retryCount}/${this.maxRetries} em ${waitMs}ms`,
             );
-            setTimeout(() => {
+            this.reconnectTimer = setTimeout(() => {
               this.starting = false;
               this.startSession(this.currentAccountId ?? undefined).catch(() => undefined);
             }, waitMs);
@@ -196,6 +201,11 @@ export class QrService {
   }
 
   async disconnect() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     try {
       if (this.sock?.logout) {
         await this.sock.logout();
