@@ -132,6 +132,18 @@ jobs:
             echo "Fazendo build do Web..."
             npm run build -w @crm/web
 
+            # Motivo: POSTGRES_PASSWORD do Docker só vale na 1ª criação do volume.
+            # Garantir que a senha do banco está correta antes de rodar migrations.
+            echo "Garantindo credenciais do banco..."
+            PG_CONTAINER=$(docker ps --filter "ancestor=postgres:16" --format '{{.Names}}' | head -1)
+            if [ -n "$PG_CONTAINER" ]; then
+              docker exec "$PG_CONTAINER" psql -U postgres -c "ALTER USER postgres PASSWORD 'postgres';" && \
+                echo "Senha do PostgreSQL atualizada com sucesso" || \
+                echo "Aviso: falha ao atualizar senha do PostgreSQL"
+            else
+              echo "Aviso: container PostgreSQL nao encontrado"
+            fi
+
             # Migrations
             echo "Executando migrations..."
             npm run prisma:migrate -w @crm/api
