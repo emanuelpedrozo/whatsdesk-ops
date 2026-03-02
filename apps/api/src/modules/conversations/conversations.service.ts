@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ConversationStatus, MessageDirection, MessageStatus } from '@prisma/client';
+import { ConversationStatus, MessageDirection, MessageStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
@@ -20,11 +20,11 @@ export class ConversationsService {
     const { q, status, agentId, departmentId, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
-    const where = {
+    const where: Prisma.ConversationWhereInput = {
       ...(q
         ? {
             OR: [
-              { contact: { name: { contains: q, mode: 'insensitive' } } },
+              { contact: { name: { contains: q, mode: Prisma.QueryMode.insensitive } } },
               { contact: { phone: { contains: q } } },
             ],
           }
