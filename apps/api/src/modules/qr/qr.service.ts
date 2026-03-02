@@ -3,11 +3,15 @@ import * as QRCode from 'qrcode';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { rm } from 'fs/promises';
 import { join } from 'path';
+import pino from 'pino';
 
 export type QrSessionStatus = 'DISCONNECTED' | 'WAITING_QR' | 'CONNECTED';
 
 // Motivo: Caminho absoluto para evitar problemas com cwd diferente ao rodar via PM2
 const AUTH_DIR = join(process.cwd(), 'apps', 'api', '.baileys_auth');
+
+// Motivo: Logger do Pino necessário para o Baileys funcionar corretamente
+const baileysLogger = pino({ level: 'warn' });
 
 @Injectable()
 export class QrService {
@@ -48,17 +52,44 @@ export class QrService {
     if (this.starting) return this.getSession();
     this.starting = true;
     try {
+      // Motivo: Limpar auth state anterior para evitar dados corrompidos causando falha
+      await rm(AUTH_DIR, { recursive: true, force: true }).catch(() => undefined);
+
       const baileys = await import('@whiskeysockets/baileys');
-      const { default: makeWASocket, DisconnectReason, useMultiFileAuthState } = baileys;
+      const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = baileys;
 
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
       this.currentAccountId = accountId ?? this.currentAccountId;
       this.lastError = null;
 
+      // Motivo: Buscar a versão mais recente do WA para evitar rejeição por versão desatualizada
+      let version: [number, number, number] | undefined;
+      try {
+        const { version: latestVersion } = await fetchLatestBaileysVersion();
+        version = latestVersion;
+        this.logger.log(`Usando versão do WhatsApp: ${latestVersion.join('.')}`);
+      } catch {
+        this.logger.warn('Não foi possível buscar versão do WA, usando padrão');
+      }
+
       const sock = makeWASocket({
         auth: state,
         printQRInTerminal: false,
-        browser: ['Painel Atendimento', 'Chrome', '1.0.0'],
+        logger: baileysLogger,
+        // Motivo: Usar fingerprint padrão do Baileys para evitar bloqueio
+        browser: baileys.Browsers.ubuntu('Chrome'),
+        // Motivo: Usar a versão mais recente do protocolo WA
+        ...(version ? { version } : {}),
+        // Motivo: Não sincronizar histórico completo reduz chance de desconexão
+        syncFullHistory: false,
+        // Motivo: Timeout de conexão mais generoso para servidores remotos
+        connectTimeoutMs: 60000,
+        // Motivo: Delay entre requisições para evitar rate-limiting
+        retryRequestDelayMs: 250,
+        // Motivo: Handler obrigatório no Baileys v6 para retry de mensagens
+        getMessage: async () => {
+          return { conversation: '' };
+        },
       });
 
       this.sock = sock;
@@ -74,12 +105,14 @@ export class QrService {
           this.qrDataUrl = await QRCode.toDataURL(qr, { margin: 1, width: 240 });
           this.status = 'WAITING_QR';
           this.updatedAt = new Date().toISOString();
+          this.logger.log('QR Code gerado, aguardando leitura...');
         }
 
         if (connection === 'open') {
           this.status = 'CONNECTED';
           this.qrDataUrl = null;
           this.updatedAt = new Date().toISOString();
+          this.retryCount = 0;
           this.logger.log('Sessao WhatsApp Web conectada');
         }
 
@@ -92,13 +125,16 @@ export class QrService {
           this.updatedAt = new Date().toISOString();
           this.sock = null;
 
+          this.logger.warn(`Conexao fechada: ${reason} (statusCode: ${statusCode})`);
+
           if (shouldReconnect && this.retryCount < this.maxRetries) {
             this.retryCount += 1;
-            const waitMs = Math.min(12000, 2000 * this.retryCount);
+            const waitMs = Math.min(20000, 3000 * this.retryCount);
             this.logger.warn(
-              `Conexao fechada (${reason}). Tentativa ${this.retryCount}/${this.maxRetries} em ${waitMs}ms`,
+              `Tentativa ${this.retryCount}/${this.maxRetries} em ${waitMs}ms`,
             );
             setTimeout(() => {
+              this.starting = false;
               this.startSession(this.currentAccountId ?? undefined).catch(() => undefined);
             }, waitMs);
           } else if (shouldReconnect) {
