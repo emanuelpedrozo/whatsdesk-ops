@@ -47,20 +47,38 @@ export class OperationsService {
   }
 
   async dashboard() {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Usar agregações SQL para melhor performance
     const [
-      conversations,
+      totalAtendimentos,
+      iniciadosPeriodo,
+      aguardandoAtendimento,
+      emAtendimento,
+      finalizados,
       attendants,
       automationRuns,
     ] = await Promise.all([
-      this.prisma.conversation.findMany({
-        include: {
-          assignedTo: {
-            include: { role: true },
-          },
-          messages: {
-            orderBy: { createdAt: 'asc' },
-            select: { direction: true, createdAt: true },
-          },
+      this.prisma.conversation.count(),
+      this.prisma.conversation.count({
+        where: { createdAt: { gte: monthStart } },
+      }),
+      this.prisma.conversation.count({
+        where: {
+          assignedToId: null,
+          status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] },
+        },
+      }),
+      this.prisma.conversation.count({
+        where: {
+          assignedToId: { not: null },
+          status: { in: [ConversationStatus.OPEN, ConversationStatus.PENDING] },
+        },
+      }),
+      this.prisma.conversation.count({
+        where: {
+          status: { in: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED] },
         },
       }),
       this.prisma.user.findMany({
@@ -70,27 +88,56 @@ export class OperationsService {
       this.prisma.automationRun.count(),
     ]);
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const totalAtendimentos = conversations.length;
-    const iniciadosPeriodo = conversations.filter((c) => c.createdAt >= monthStart).length;
-    const aguardandoAtendimento = conversations.filter(
-      (c) => c.assignedToId === null && (c.status === ConversationStatus.OPEN || c.status === ConversationStatus.PENDING),
-    ).length;
-    const emAtendimento = conversations.filter(
-      (c) => c.assignedToId !== null && (c.status === ConversationStatus.OPEN || c.status === ConversationStatus.PENDING),
-    ).length;
-    const finalizados = conversations.filter(
-      (c) => c.status === ConversationStatus.RESOLVED || c.status === ConversationStatus.CLOSED,
-    ).length;
-
     const agentesOnline = attendants.filter((u) => u.status === UserStatus.ACTIVE).length;
+
+    // Buscar apenas conversas necessárias para cálculos de SLA e estatísticas
+    const [conversationsForStats, conversationsForSLA] = await Promise.all([
+      // Para estatísticas por agente e departamento
+      this.prisma.conversation.findMany({
+        where: { assignedToId: { not: null } },
+        select: {
+          id: true,
+          status: true,
+          assignedTo: {
+            select: {
+              id: true,
+              name: true,
+              role: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      // Para SLA (apenas as 20 mais recentes)
+      this.prisma.conversation.findMany({
+        take: 20,
+        orderBy: { lastMessageAt: 'desc' },
+        select: {
+          id: true,
+          status: true,
+          assignedTo: { select: { name: true } },
+          messages: {
+            select: { direction: true, createdAt: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      }),
+    ]);
+
+    // Buscar mensagens apenas para cálculos de tempo médio (amostragem)
+    const conversationsForTiming = await this.prisma.conversation.findMany({
+      take: 100, // Limitar para performance
+      select: {
+        messages: {
+          select: { direction: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
 
     const esperaMs: number[] = [];
     const atendimentoMs: number[] = [];
 
-    for (const convo of conversations) {
+    for (const convo of conversationsForTiming) {
       const firstInbound = convo.messages.find((m) => m.direction === 'INBOUND');
       const firstOutbound = convo.messages.find((m) => m.direction === 'OUTBOUND');
       const lastOutbound = [...convo.messages].reverse().find((m) => m.direction === 'OUTBOUND');
@@ -120,7 +167,7 @@ export class OperationsService {
 
     const atendimentosPorDepartamentoMap = new Map<string, number>();
 
-    for (const convo of conversations) {
+    for (const convo of conversationsForStats) {
       const assigned = convo.assignedTo;
       if (assigned) {
         const current = atendimentosPorAgenteMap.get(assigned.id) ?? {
@@ -154,7 +201,7 @@ export class OperationsService {
       }),
     );
 
-    const slaPorConversa = conversations.slice(0, 20).map((c) => {
+    const slaPorConversa = conversationsForSLA.map((c) => {
       const firstInbound = c.messages.find((m) => m.direction === 'INBOUND');
       const firstOutbound = c.messages.find((m) => m.direction === 'OUTBOUND');
       const waitMs =

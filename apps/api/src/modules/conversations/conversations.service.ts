@@ -17,30 +17,46 @@ export class ConversationsService {
   ) {}
 
   async list(query: ListConversationsQuery) {
-    const { q, status, agentId, departmentId } = query;
-    return this.prisma.conversation.findMany({
-      where: {
-        ...(q
-          ? {
+    const { q, status, agentId, departmentId, page = 1, limit = 20 } = query;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      ...(q
+        ? {
             OR: [
               { contact: { name: { contains: q, mode: 'insensitive' } } },
               { contact: { phone: { contains: q } } },
             ],
-            }
-          : {}),
-        ...(status ? { status: status as ConversationStatus } : {}),
-        ...(agentId ? { assignedToId: agentId } : {}),
-        ...(departmentId ? { departmentId } : {}),
-      },
-      include: {
-        contact: true,
-        assignedTo: { select: { id: true, name: true } },
-        department: { select: { id: true, name: true } },
-        messages: { take: 1, orderBy: { createdAt: 'desc' } },
-      },
-      orderBy: { lastMessageAt: 'desc' },
-      take: 100,
-    });
+          }
+        : {}),
+      ...(status ? { status: status as ConversationStatus } : {}),
+      ...(agentId ? { assignedToId: agentId } : {}),
+      ...(departmentId ? { departmentId } : {}),
+    };
+
+    const [conversations, total] = await Promise.all([
+      this.prisma.conversation.findMany({
+        where,
+        include: {
+          contact: true,
+          assignedTo: { select: { id: true, name: true } },
+          department: { select: { id: true, name: true } },
+          messages: { take: 1, orderBy: { createdAt: 'desc' } },
+        },
+        orderBy: { lastMessageAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.conversation.count({ where }),
+    ]);
+
+    return {
+      conversations,
+      hasMore: skip + conversations.length < total,
+      total,
+      page,
+      limit,
+    };
   }
 
   async getById(id: string) {

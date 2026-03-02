@@ -75,13 +75,12 @@ jobs:
     needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - name: Deploy via SSH
+      - name: Setup SSH
         env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
           SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -euo pipefail
 
@@ -91,38 +90,102 @@ jobs:
           fi
 
           PORT="${SSH_PORT:-22}"
-          TARGET_PATH="${DEPLOY_PATH:-/opt/whatsdesk-ops}"
 
+          # Criar diretório SSH
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf "%s" "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+
+          # Escrever chave SSH preservando quebras de linha
+          # Usar echo sem aspas para preservar quebras de linha do secret
+          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          if [ "$(wc -c < ~/.ssh/id_rsa)" -lt 100 ]; then
-            echo "SSH_PRIVATE_KEY appears empty or truncated."
+
+          # Validar tamanho da chave
+          KEY_SIZE=$(wc -c < ~/.ssh/id_rsa | tr -d ' ')
+          if [ "${KEY_SIZE}" -lt 100 ]; then
+            echo "Erro: SSH_PRIVATE_KEY parece estar vazia ou truncada (tamanho: ${KEY_SIZE} bytes)"
             exit 1
           fi
-          ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
 
-          ssh -o IdentitiesOnly=yes -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<EOF
+          # Verificar formato da chave
+          if ! head -1 ~/.ssh/id_rsa | grep -qE "^(-----BEGIN (RSA |OPENSSH )?PRIVATE KEY-----|-----BEGIN EC PRIVATE KEY-----)"; then
+            echo "Aviso: Formato da chave SSH pode estar incorreto"
+            echo "Primeira linha da chave: $(head -1 ~/.ssh/id_rsa)"
+          fi
+
+          # Adicionar host ao known_hosts
+          ssh-keyscan -p "${PORT}" -H "${SSH_HOST}" 2>/dev/null >> ~/.ssh/known_hosts || true
+          chmod 644 ~/.ssh/known_hosts
+
+          # Testar conexão SSH
+          echo "Testando conexão SSH..."
+          if ! ssh -o BatchMode=yes -o ConnectTimeout=5 -o IdentitiesOnly=yes -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" "echo 'Conexão SSH OK'" 2>&1; then
+            echo "Erro: Falha ao conectar via SSH. Verifique:"
+            echo "1. A chave SSH está correta e completa no secret SSH_PRIVATE_KEY"
+            echo "2. A chave pública correspondente está no servidor (~/.ssh/authorized_keys)"
+            echo "3. SSH_HOST e SSH_USER estão corretos"
+            exit 1
+          fi
+
+      - name: Deploy via SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+
+          PORT="${SSH_PORT:-22}"
+          TARGET_PATH="${DEPLOY_PATH:-/opt/whatsdesk-ops}"
+
+          ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p "${PORT}" "${SSH_USER}@${SSH_HOST}" <<'DEPLOY_SCRIPT'
           set -euo pipefail
           cd "${TARGET_PATH}"
 
-          if [ -n "\$(git status --porcelain)" ]; then
-            echo "Local changes detected. Creating auto-stash before deploy."
-            git stash push --include-untracked -m "gha-autostash-\$(date +%s)"
+          echo "=== Iniciando deploy ==="
+          echo "Diretório: $(pwd)"
+          echo "Branch atual: $(git branch --show-current)"
+
+          # Verificar se há mudanças locais
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Mudanças locais detectadas. Criando stash automático..."
+            git stash push --include-untracked -m "gha-autostash-$(date +%s)"
           fi
 
+          # Atualizar código
+          echo "Atualizando código do repositório..."
           git fetch origin main
           git checkout main
-          git pull --ff-only origin main
+          git pull --ff-only origin main || {
+            echo "Erro: Não foi possível fazer pull. Verifique se há conflitos."
+            exit 1
+          }
 
+          # Instalar dependências
+          echo "Instalando dependências..."
           npm ci
+
+          # Gerar Prisma client
+          echo "Gerando Prisma client..."
           npm run prisma:generate -w @crm/api
+
+          # Build
+          echo "Fazendo build da API..."
           npm run build -w @crm/api
+
+          echo "Fazendo build do Web..."
           npm run build -w @crm/web
+
+          # Migrations
+          echo "Executando migrations..."
           npm run prisma:migrate -w @crm/api
 
+          # Restart PM2
+          echo "Reiniciando processos PM2..."
           pm2 restart whatsdesk-api --update-env || pm2 start "npm run start -w @crm/api" --name whatsdesk-api
           pm2 restart whatsdesk-web --update-env || pm2 start "npm run start -w @crm/web" --name whatsdesk-web
           pm2 save
-          EOF
+
+          echo "=== Deploy concluído com sucesso ==="
+          DEPLOY_SCRIPT
