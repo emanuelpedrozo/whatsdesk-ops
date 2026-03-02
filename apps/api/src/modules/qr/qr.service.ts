@@ -2,8 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as QRCode from 'qrcode';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { rm } from 'fs/promises';
+import { join } from 'path';
 
 export type QrSessionStatus = 'DISCONNECTED' | 'WAITING_QR' | 'CONNECTED';
+
+// Motivo: Caminho absoluto para evitar problemas com cwd diferente ao rodar via PM2
+const AUTH_DIR = join(process.cwd(), 'apps', 'api', '.baileys_auth');
 
 @Injectable()
 export class QrService {
@@ -47,7 +51,7 @@ export class QrService {
       const baileys = await import('@whiskeysockets/baileys');
       const { default: makeWASocket, DisconnectReason, useMultiFileAuthState } = baileys;
 
-      const { state, saveCreds } = await useMultiFileAuthState('apps/api/.baileys_auth');
+      const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
       this.currentAccountId = accountId ?? this.currentAccountId;
       this.lastError = null;
 
@@ -176,7 +180,7 @@ export class QrService {
   async reset() {
     await this.disconnect();
     try {
-      await rm('apps/api/.baileys_auth', { recursive: true, force: true });
+      await rm(AUTH_DIR, { recursive: true, force: true });
     } catch {
       // ignore
     }
