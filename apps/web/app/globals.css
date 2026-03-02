@@ -336,7 +336,7 @@ body {
 }
 
 .text-center {
-  text-center;
+  text-align: center;
 }
 
 .min-h-screen {
