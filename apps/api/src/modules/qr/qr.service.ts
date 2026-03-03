@@ -4,6 +4,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { rm } from 'fs/promises';
 import { join } from 'path';
 import pino from 'pino';
+import { PrismaService } from '../common/prisma.service';
 
 export type QrSessionStatus = 'DISCONNECTED' | 'WAITING_QR' | 'CONNECTED';
 
@@ -28,7 +29,44 @@ export class QrService {
   private sock: any = null;
   private currentAccountId: string | null = null;
 
-  constructor(private readonly webhooks: WebhooksService) {}
+  constructor(
+    private readonly webhooks: WebhooksService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  private normalizePhoneFromJid(jid?: string | null) {
+    if (!jid) return null;
+    const phone = jid.split('@')[0]?.replace(/\D/g, '');
+    return phone || null;
+  }
+
+  private async ensureCurrentAccountId() {
+    if (this.currentAccountId) return this.currentAccountId;
+    const firstActive = await this.prisma.whatsappAccount.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    if (firstActive?.id) {
+      this.currentAccountId = firstActive.id;
+      return firstActive.id;
+    }
+    return null;
+  }
+
+  private async syncConnectedAccountPhone(sock: any) {
+    const accountId = await this.ensureCurrentAccountId();
+    if (!accountId) return;
+
+    const phone = this.normalizePhoneFromJid(sock?.user?.id);
+    if (!phone) return;
+
+    await this.prisma.whatsappAccount.update({
+      where: { id: accountId },
+      data: { phoneNumber: phone },
+    });
+    this.logger.log(`Conta WhatsApp sincronizada com numero ${phone}`);
+  }
 
   getSession() {
     return {
@@ -116,6 +154,7 @@ export class QrService {
           this.qrDataUrl = null;
           this.updatedAt = new Date().toISOString();
           this.retryCount = 0;
+          await this.syncConnectedAccountPhone(sock).catch(() => undefined);
           this.logger.log('Sessao WhatsApp Web conectada');
         }
 
@@ -153,6 +192,8 @@ export class QrService {
       sock.ev.on('messages.upsert', async (evt: any) => {
         const messages = evt?.messages ?? [];
         if (!messages.length) return;
+        const accountId = await this.ensureCurrentAccountId();
+        if (!accountId) return;
 
         for (const msg of messages) {
           if (msg.key?.fromMe) continue;
@@ -170,7 +211,7 @@ export class QrService {
 
           await this.webhooks.processWhatsappWebhook({
             eventId: `baileys-${msg.key?.id ?? Date.now()}`,
-            accountId: this.currentAccountId ?? 'baileys-account',
+            accountId,
             messages: [
               {
                 id: msg.key?.id ?? `baileys-${Date.now()}`,
