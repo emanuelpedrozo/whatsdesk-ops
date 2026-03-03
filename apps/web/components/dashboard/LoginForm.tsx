@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import React, { FormEvent, useState, useEffect } from 'react';
 import { apiFetch } from '../api';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmail, validateRequired } from '../../utils/validation';
@@ -13,6 +13,29 @@ export function LoginForm() {
   const [password, setPassword] = useState('admin123');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
+
+  // Motivo: Verificar se a API está acessível antes de tentar fazer login
+  useEffect(() => {
+    const checkApiHealth = async () => {
+      setApiStatus('checking');
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+        const res = await fetch(`${apiBase}/health`, {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          setApiStatus('online');
+        } else {
+          setApiStatus('offline');
+        }
+      } catch {
+        setApiStatus('offline');
+      }
+    };
+    checkApiHealth();
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -70,15 +93,36 @@ export function LoginForm() {
       toastManager.show(`Bem-vindo, ${body.user?.name || email}!`, 'success');
     } catch (error: any) {
       // Tratar diferentes tipos de erro
+      let errorMessage = 'Erro ao fazer login';
+      
       if (error instanceof Error) {
-        if (error.message.includes('fetch')) {
-          toastManager.show('Erro de conexão. Verifique se o servidor está rodando.', 'error');
+        // Motivo: Tratar erros específicos da API
+        if (error.name === 'ApiError') {
+          const apiError = error as { status: number; message: string };
+          if (apiError.status === 502) {
+            errorMessage = 'Backend não está respondendo. Verifique se a API está rodando.';
+          } else if (apiError.status === 503) {
+            errorMessage = 'Serviço temporariamente indisponível. Tente novamente.';
+          } else {
+            errorMessage = apiError.message || errorMessage;
+          }
+        } else if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+          errorMessage = 'Erro de conexão. Verifique se o servidor backend está rodando e acessível.';
         } else {
-          toastManager.show(error.message || 'Erro ao fazer login', 'error');
+          errorMessage = error.message || errorMessage;
         }
-      } else {
-        toastManager.show('Erro desconhecido ao fazer login', 'error');
+      } else if (error?.status) {
+        // Motivo: Tratar erros de resposta HTTP
+        if (error.status === 502) {
+          errorMessage = 'Backend não está respondendo. Verifique se a API está rodando na porta correta.';
+        } else if (error.status === 503) {
+          errorMessage = 'Serviço temporariamente indisponível. Tente novamente.';
+        } else {
+          errorMessage = error.message || errorMessage;
+        }
       }
+      
+      toastManager.show(errorMessage, 'error');
       console.error('Login error:', error);
     } finally {
       setLoading(false);
@@ -121,6 +165,31 @@ export function LoginForm() {
         <p className="small-hint">
           Usuários seed: `admin@local.dev` / `supervisor@local.dev` com senha `admin123`.
         </p>
+        {apiStatus === 'checking' && (
+          <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+            Verificando conexão com o servidor...
+          </p>
+        )}
+        {apiStatus === 'offline' && (
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '8px 12px', 
+            background: '#fee', 
+            border: '1px solid #fcc', 
+            borderRadius: '4px',
+            fontSize: '12px',
+            color: '#c33'
+          }}>
+            ⚠️ Servidor backend não está acessível. Verifique se a API está rodando.
+            <br />
+            <small>URL esperada: {process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api'}</small>
+          </div>
+        )}
+        {apiStatus === 'online' && (
+          <p style={{ fontSize: '12px', color: '#3a3', marginTop: '8px' }}>
+            ✓ Servidor conectado
+          </p>
+        )}
       </section>
     </main>
   );

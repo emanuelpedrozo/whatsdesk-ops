@@ -14,6 +14,7 @@ import { TemplatesModule } from './modules/templates/templates.module';
 import { JwtAuthGuard } from './modules/common/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/common/guards/roles.guard';
 import { QrModule } from './modules/qr/qr.module';
+import { CommonModule } from './modules/common/common.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { QrModule } from './modules/qr/qr.module';
     AgentsModule,
     TemplatesModule,
     QrModule,
+    CommonModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

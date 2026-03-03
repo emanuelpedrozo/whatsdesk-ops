@@ -34,11 +34,36 @@ export async function apiFetch(path: string, init?: RequestInit) {
   if (!headers.has('Content-Type') && init?.body) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      cache: 'no-store',
+    });
+  } catch (error: any) {
+    // Motivo: Erro de rede (backend não está rodando ou não acessível)
+    if (error.message?.includes('fetch') || error.message?.includes('Failed to fetch')) {
+      throw new ApiError(
+        503,
+        'Servidor não está respondendo. Verifique se o backend está rodando e acessível.'
+      );
+    }
+    throw error;
+  }
+
+  // Motivo: 502 Bad Gateway geralmente indica que o proxy/gateway não consegue se conectar ao backend
+  if (res.status === 502) {
+    throw new ApiError(
+      502,
+      'Servidor backend não está disponível. Verifique se a API está rodando na porta correta.'
+    );
+  }
+
+  // Motivo: 503 Service Unavailable indica que o serviço está temporariamente indisponível
+  if (res.status === 503) {
+    throw new ApiError(503, 'Serviço temporariamente indisponível. Tente novamente em alguns instantes.');
+  }
 
   // Se token expirou, remover e lançar erro
   if (res.status === 401) {
