@@ -1,7 +1,7 @@
 'use client';
 
 import React, { FormEvent, useState, useEffect } from 'react';
-import { apiFetch } from '../api';
+import { apiFetch, ApiError } from '../api';
 import { useAuth } from '../../hooks/useAuth';
 import { validateEmail, validateRequired } from '../../utils/validation';
 import { Button } from '../ui/Button';
@@ -91,34 +91,35 @@ export function LoginForm() {
 
       await login(body.accessToken);
       toastManager.show(`Bem-vindo, ${body.user?.name || email}!`, 'success');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Tratar diferentes tipos de erro
       let errorMessage = 'Erro ao fazer login';
       
-      if (error instanceof Error) {
-        // Motivo: Tratar erros específicos da API
-        if (error.name === 'ApiError') {
-          const apiError = error as { status: number; message: string };
-          if (apiError.status === 502) {
-            errorMessage = 'Backend não está respondendo. Verifique se a API está rodando.';
-          } else if (apiError.status === 503) {
-            errorMessage = 'Serviço temporariamente indisponível. Tente novamente.';
-          } else {
-            errorMessage = apiError.message || errorMessage;
-          }
-        } else if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
-          errorMessage = 'Erro de conexão. Verifique se o servidor backend está rodando e acessível.';
-        } else {
-          errorMessage = error.message || errorMessage;
-        }
-      } else if (error?.status) {
-        // Motivo: Tratar erros de resposta HTTP
+      // Motivo: Verificar se é ApiError primeiro (tem status e message)
+      if (error instanceof ApiError) {
         if (error.status === 502) {
-          errorMessage = 'Backend não está respondendo. Verifique se a API está rodando na porta correta.';
+          errorMessage = 'Backend não está respondendo. Verifique se a API está rodando.';
         } else if (error.status === 503) {
           errorMessage = 'Serviço temporariamente indisponível. Tente novamente.';
         } else {
           errorMessage = error.message || errorMessage;
+        }
+      } else if (error instanceof Error) {
+        // Motivo: Tratar erros genéricos de Error
+        if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+          errorMessage = 'Erro de conexão. Verifique se o servidor backend está rodando e acessível.';
+        } else {
+          errorMessage = error.message || errorMessage;
+        }
+      } else if (error && typeof error === 'object' && 'status' in error) {
+        // Motivo: Tratar objetos de erro com status (fallback)
+        const err = error as { status: number; message?: string };
+        if (err.status === 502) {
+          errorMessage = 'Backend não está respondendo. Verifique se a API está rodando na porta correta.';
+        } else if (err.status === 503) {
+          errorMessage = 'Serviço temporariamente indisponível. Tente novamente.';
+        } else {
+          errorMessage = err.message || errorMessage;
         }
       }
       
