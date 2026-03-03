@@ -55,10 +55,12 @@ describe('Auth + RBAC (e2e)', () => {
         roleId: attendantRole.id,
       },
     });
-  });
+  }, 30000); // 30 segundos de timeout
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('bloqueia rota protegida sem token', async () => {

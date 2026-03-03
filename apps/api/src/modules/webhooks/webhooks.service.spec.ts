@@ -10,8 +10,9 @@ describe('WebhooksService', () => {
 
     const realtime: any = { emitMessageCreated: jest.fn(), emitConversationUpdated: jest.fn() };
     const audit: any = { log: jest.fn() };
+    const conversations: any = { autoAssign: jest.fn() };
 
-    const service = new WebhooksService(prisma, realtime, audit);
+    const service = new WebhooksService(prisma, realtime, audit, conversations);
     const result = await service.processWhatsappWebhook({ eventId: 'abc', accountId: 'acc1' });
 
     expect(result).toEqual({ deduplicated: true });
