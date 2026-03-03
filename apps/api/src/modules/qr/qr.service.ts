@@ -40,6 +40,31 @@ export class QrService {
     return phone || null;
   }
 
+  private unwrapMessageContent(content: any): any {
+    if (!content) return content;
+    if (content.ephemeralMessage?.message) return this.unwrapMessageContent(content.ephemeralMessage.message);
+    if (content.viewOnceMessage?.message) return this.unwrapMessageContent(content.viewOnceMessage.message);
+    if (content.viewOnceMessageV2?.message) return this.unwrapMessageContent(content.viewOnceMessageV2.message);
+    if (content.viewOnceMessageV2Extension?.message) return this.unwrapMessageContent(content.viewOnceMessageV2Extension.message);
+    if (content.editedMessage?.message) return this.unwrapMessageContent(content.editedMessage.message);
+    return content;
+  }
+
+  private extractIncomingText(msg: any) {
+    const content = this.unwrapMessageContent(msg?.message);
+    return (
+      content?.conversation ??
+      content?.extendedTextMessage?.text ??
+      content?.imageMessage?.caption ??
+      content?.videoMessage?.caption ??
+      content?.documentMessage?.caption ??
+      content?.buttonsResponseMessage?.selectedDisplayText ??
+      content?.listResponseMessage?.title ??
+      content?.templateButtonReplyMessage?.selectedDisplayText ??
+      ''
+    );
+  }
+
   private async ensureCurrentAccountId() {
     if (this.currentAccountId) return this.currentAccountId;
     
@@ -243,19 +268,18 @@ export class QrService {
             if (msg.key?.fromMe) continue;
             
             const remoteJid: string | undefined = msg.key?.remoteJid;
-            // Ignorar grupos
-            if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
+            // Ignorar grupos, status/broadcast e canais
+            if (
+              !remoteJid ||
+              remoteJid.endsWith('@g.us') ||
+              remoteJid.endsWith('@broadcast') ||
+              remoteJid.endsWith('@newsletter')
+            ) continue;
 
             const from = remoteJid.replace('@s.whatsapp.net', '');
             
             // Motivo: Extrair texto de diferentes tipos de mensagem
-            const text =
-              msg.message?.conversation ??
-              msg.message?.extendedTextMessage?.text ??
-              msg.message?.imageMessage?.caption ??
-              msg.message?.videoMessage?.caption ??
-              msg.message?.documentMessage?.caption ??
-              '';
+            const text = this.extractIncomingText(msg);
 
             // Motivo: Processar mesmo mensagens sem texto para criar a conversa
             // Se não houver texto, usar um placeholder para garantir que a conversa seja criada
