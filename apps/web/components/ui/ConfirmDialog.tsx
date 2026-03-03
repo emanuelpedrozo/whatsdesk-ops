@@ -24,6 +24,7 @@ export function ConfirmDialog({
   variant = 'primary',
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
