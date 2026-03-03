@@ -121,8 +121,8 @@ export class QrService {
         browser: baileys.Browsers.ubuntu('Chrome'),
         // Motivo: Usar a versão mais recente do protocolo WA
         ...(version ? { version } : {}),
-        // Motivo: Não sincronizar histórico completo reduz chance de desconexão
-        syncFullHistory: false,
+        // Motivo: Sincronizar histórico para exibir conversas pendentes após reconexão
+        syncFullHistory: true,
         // Motivo: Timeout de conexão mais generoso para servidores remotos
         connectTimeoutMs: 60000,
         // Motivo: Delay entre requisições para evitar rate-limiting
