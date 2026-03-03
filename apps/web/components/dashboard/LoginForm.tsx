@@ -22,11 +22,16 @@ export function LoginForm() {
       setApiStatus('checking');
       try {
         const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-        // Motivo: Se a URL for relativa, usar o domínio atual; se for absoluta, usar como está
-        const healthUrl = apiBase.startsWith('http://') || apiBase.startsWith('https://')
-          ? `${apiBase}/health`
-          : `${window.location.origin}${apiBase}/health`;
-        
+        const baseNoTrailingSlash = apiBase.replace(/\/+$/, '');
+        const baseWithoutHealth = baseNoTrailingSlash.endsWith('/health')
+          ? baseNoTrailingSlash.slice(0, -'/health'.length)
+          : baseNoTrailingSlash;
+        const resolvedBase =
+          baseWithoutHealth.startsWith('http://') || baseWithoutHealth.startsWith('https://')
+            ? baseWithoutHealth
+            : `${window.location.origin}${baseWithoutHealth.startsWith('/') ? '' : '/'}${baseWithoutHealth}`;
+        const healthUrl = `${resolvedBase}/health`;
+
         setApiUrl(healthUrl);
         
         const res = await fetch(healthUrl, {
@@ -191,7 +196,7 @@ export function LoginForm() {
           }}>
             ⚠️ Servidor backend não está acessível. Verifique se a API está rodando.
             <br />
-            <small>URL testada: {apiUrl || (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api')}/health</small>
+            <small>URL testada: {apiUrl || 'N/A'}</small>
             <br />
             <small style={{ marginTop: '4px', display: 'block' }}>
               Dica: Verifique se o backend está rodando e se o proxy/nginx está configurado corretamente.
