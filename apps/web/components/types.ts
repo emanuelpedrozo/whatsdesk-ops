@@ -88,3 +88,13 @@ export type QrSession = {
   lastError?: string | null;
   retryCount?: number;
 };
+
+export type AgentMetrics = {
+  agentId: string;
+  period: { from: string; to: string };
+  totalConversations: number;
+  resolvedConversations: number;
+  resolutionRate: number;
+  avgFirstResponseTimeMinutes: number;
+  avgResolutionTimeMinutes: number;
+};

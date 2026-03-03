@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { apiFetch, getJson } from '../api';
-import type { Agent, Department } from '../types';
+import type { Agent, Department, AgentMetrics } from '../types';
 import { validateEmail, validateRequired, validatePassword } from '../../utils/validation';
 import { Button } from '../ui/Button';
 import { toastManager } from '../ui/Toast';
@@ -202,7 +202,7 @@ export function AgentManagement({ agents, departments, onRefresh }: AgentManagem
                 variant="neutral"
                 onClick={async () => {
                   try {
-                    const metrics = await getJson(`/operations/agent/${agent.id}/metrics`);
+                    const metrics = await getJson(`/operations/agent/${agent.id}/metrics`) as AgentMetrics;
                     alert(
                       `Métricas de ${agent.name}:\n` +
                       `Total de conversas: ${metrics.totalConversations}\n` +
