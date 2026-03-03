@@ -27,13 +27,12 @@ export class JwtAuthGuard implements CanActivate {
 
     const token = authHeader.slice(7);
     try {
-      const payload = this.jwt.verify(token, {
-        secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
-      });
+      // Motivo: JwtModule já está configurado com secret, não precisa passar novamente
+      const payload = this.jwt.verify(token);
       request.user = payload;
       return true;
-    } catch {
-      throw new UnauthorizedException('Token invalido');
+    } catch (error) {
+      throw new UnauthorizedException('Token invalido ou expirado');
     }
   }
 }

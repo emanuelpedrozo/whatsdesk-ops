@@ -42,16 +42,44 @@ export function LoginForm() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        toastManager.show(errorData.message || 'Credenciais inválidas', 'error');
+        let errorMessage = 'Credenciais inválidas';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {
+          // Se não conseguir parsear JSON, usar mensagem padrão
+          if (res.status === 401) {
+            errorMessage = 'Email ou senha incorretos';
+          } else if (res.status === 500) {
+            errorMessage = 'Erro interno do servidor. Tente novamente.';
+          } else {
+            errorMessage = `Erro ${res.status}: ${res.statusText}`;
+          }
+        }
+        toastManager.show(errorMessage, 'error');
         return;
       }
 
-      const body = (await res.json()) as { accessToken: string };
-      login(body.accessToken);
-      toastManager.show('Login realizado com sucesso!', 'success');
+      const body = (await res.json()) as { accessToken: string; user?: any };
+      if (!body.accessToken) {
+        toastManager.show('Resposta inválida do servidor', 'error');
+        return;
+      }
+
+      await login(body.accessToken);
+      toastManager.show(`Bem-vindo, ${body.user?.name || email}!`, 'success');
     } catch (error: any) {
-      toastManager.show(error.message || 'Erro ao fazer login', 'error');
+      // Tratar diferentes tipos de erro
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          toastManager.show('Erro de conexão. Verifique se o servidor está rodando.', 'error');
+        } else {
+          toastManager.show(error.message || 'Erro ao fazer login', 'error');
+        }
+      } else {
+        toastManager.show('Erro desconhecido ao fazer login', 'error');
+      }
+      console.error('Login error:', error);
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto';
@@ -14,7 +14,15 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@Req() req: { user?: { sub?: string } }) {
-    return this.auth.me(req.user?.sub ?? '');
+  async me(@Req() req: { user?: { sub?: string } }) {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    const user = await this.auth.me(userId);
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+    return user;
   }
 }

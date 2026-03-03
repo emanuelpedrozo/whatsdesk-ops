@@ -46,9 +46,10 @@ export function useAuth() {
     }
   }, []);
 
-  const login = useCallback((token: string) => {
+  const login = useCallback(async (token: string) => {
     setAuthToken(token);
-    loadUser();
+    // Motivo: Aguardar carregar usuário para garantir que o token é válido
+    await loadUser();
   }, [loadUser]);
 
   const logout = useCallback(() => {
