@@ -4,6 +4,8 @@ import * as bcrypt from 'bcrypt';
 import * as request from 'supertest';
 import { AppModule } from '../app.module';
 import { PrismaService } from '../modules/common/prisma.service';
+import { QrService } from '../modules/qr/qr.service';
+import { RealtimeGateway } from '../modules/realtime/realtime.gateway';
 
 describe('Auth + RBAC (e2e)', () => {
   let app: INestApplication;
@@ -12,7 +14,26 @@ describe('Auth + RBAC (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(QrService)
+      .useValue({
+        getStatus: jest.fn().mockResolvedValue({
+          status: 'DISCONNECTED',
+          qrDataUrl: null,
+          updatedAt: new Date().toISOString(),
+          mode: 'mock',
+        }),
+        start: jest.fn(),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })
+      .overrideProvider(RealtimeGateway)
+      .useValue({
+        emitMessageCreated: jest.fn(),
+        emitConversationUpdated: jest.fn(),
+        emitOrderCreated: jest.fn(),
+      })
+      .compile();
 
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
