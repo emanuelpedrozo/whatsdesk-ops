@@ -15,6 +15,7 @@ import { JwtAuthGuard } from './modules/common/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/common/guards/roles.guard';
 import { QrModule } from './modules/qr/qr.module';
 import { CommonModule } from './modules/common/common.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CommonModule } from './modules/common/common.module';
     QrModule,
     CommonModule,
   ],
+  controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
