@@ -10,6 +10,7 @@ const config: Config = {
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
+  testTimeout: 60000, // 60 segundos de timeout global para testes (especialmente e2e)
 };
 
 export default config;

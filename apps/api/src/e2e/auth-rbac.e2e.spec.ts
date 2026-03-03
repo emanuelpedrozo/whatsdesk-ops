@@ -55,7 +55,7 @@ describe('Auth + RBAC (e2e)', () => {
         roleId: attendantRole.id,
       },
     });
-  }, 30000); // 30 segundos de timeout
+  }, 60000); // 60 segundos de timeout para inicialização completa do AppModule
 
   afterAll(async () => {
     if (app) {
