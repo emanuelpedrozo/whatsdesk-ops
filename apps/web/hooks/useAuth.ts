@@ -58,6 +58,13 @@ export function useAuth() {
 
   useEffect(() => {
     loadUser();
+
+    const onAuthChanged = () => {
+      loadUser().catch(() => undefined);
+    };
+
+    window.addEventListener('auth-changed', onAuthChanged);
+    return () => window.removeEventListener('auth-changed', onAuthChanged);
   }, [loadUser]);
 
   return { me, loading, login, logout, refresh: loadUser };

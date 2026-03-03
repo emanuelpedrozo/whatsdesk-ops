@@ -19,11 +19,13 @@ export function getAuthToken() {
 export function setAuthToken(token: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem('auth_token', token);
+  window.dispatchEvent(new Event('auth-changed'));
 }
 
 export function removeAuthToken() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('auth_token');
+  window.dispatchEvent(new Event('auth-changed'));
 }
 
 export async function apiFetch(path: string, init?: RequestInit) {
