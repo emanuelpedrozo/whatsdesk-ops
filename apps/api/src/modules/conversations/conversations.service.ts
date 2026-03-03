@@ -220,6 +220,7 @@ export class ConversationsService {
         id: true,
         name: true,
         departmentId: true,
+        updatedAt: true,
         _count: {
           select: {
             conversations: {
@@ -230,13 +231,17 @@ export class ConversationsService {
           },
         },
       },
-      orderBy: [
-        { _count: { conversations: 'asc' } }, // Menor carga primeiro
-        { updatedAt: 'asc' }, // Mais antigo primeiro (round-robin)
-      ],
+      orderBy: { updatedAt: 'asc' }, // Mais antigo primeiro (round-robin)
     });
 
     if (availableAgents.length === 0) return false;
+
+    // Motivo: Ordenar em memória por carga (menor primeiro) e depois por updatedAt
+    availableAgents.sort((a, b) => {
+      const countDiff = a._count.conversations - b._count.conversations;
+      if (countDiff !== 0) return countDiff;
+      return a.updatedAt.getTime() - b.updatedAt.getTime();
+    });
 
     // Motivo: Selecionar atendente com menor carga
     const selectedAgent = availableAgents[0];
