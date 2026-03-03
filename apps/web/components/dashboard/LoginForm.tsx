@@ -14,6 +14,7 @@ export function LoginForm() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline' | null>(null);
+  const [apiUrl, setApiUrl] = useState<string>('');
 
   // Motivo: Verificar se a API está acessível antes de tentar fazer login
   useEffect(() => {
@@ -21,7 +22,14 @@ export function LoginForm() {
       setApiStatus('checking');
       try {
         const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
-        const res = await fetch(`${apiBase}/health`, {
+        // Motivo: Se a URL for relativa, usar o domínio atual; se for absoluta, usar como está
+        const healthUrl = apiBase.startsWith('http://') || apiBase.startsWith('https://')
+          ? `${apiBase}/health`
+          : `${window.location.origin}${apiBase}/health`;
+        
+        setApiUrl(healthUrl);
+        
+        const res = await fetch(healthUrl, {
           method: 'GET',
           cache: 'no-store',
         });
@@ -183,7 +191,11 @@ export function LoginForm() {
           }}>
             ⚠️ Servidor backend não está acessível. Verifique se a API está rodando.
             <br />
-            <small>URL esperada: {process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api'}</small>
+            <small>URL testada: {apiUrl || (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api')}/health</small>
+            <br />
+            <small style={{ marginTop: '4px', display: 'block' }}>
+              Dica: Verifique se o backend está rodando e se o proxy/nginx está configurado corretamente.
+            </small>
           </div>
         )}
         {apiStatus === 'online' && (
