@@ -29,6 +29,8 @@ export function ConversationDetail({
   const [selectedTransferAgent, setSelectedTransferAgent] = useState('');
   const [showPriorityDialog, setShowPriorityDialog] = useState(false);
   const [selectedPriority, setSelectedPriority] = useState<string>('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<Array<{ id: string; action: string; actor?: { name: string } | null; createdAt: string }>>([]);
   const { loading, withLoading } = useLoading();
   const { me } = useAuth();
   const chatLogRef = useRef<HTMLDivElement>(null);
@@ -62,7 +64,7 @@ export function ConversationDetail({
   const loadHistory = useCallback(async () => {
     if (!conversationId) return;
     try {
-      const hist = await getJson<any[]>(`/conversations/${conversationId}/history`);
+      const hist = await getJson<Array<{ id: string; action: string; actor?: { name: string } | null; createdAt: string }>>(`/conversations/${conversationId}/history`);
       setHistory(hist);
     } catch {
       // Ignorar erro
