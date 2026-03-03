@@ -12,11 +12,25 @@ enum UserStatus {
   INACTIVE
 }
 
+enum AgentAvailabilityStatus {
+  AVAILABLE
+  BUSY
+  AWAY
+  OFFLINE
+}
+
 enum ConversationStatus {
   OPEN
   PENDING
   RESOLVED
   CLOSED
+}
+
+enum ConversationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
 
 enum MessageDirection {
@@ -79,22 +93,25 @@ model RolePermission {
 }
 
 model User {
-  id              String         @id @default(cuid())
-  email           String         @unique
-  name            String
-  passwordHash    String
-  status          UserStatus     @default(ACTIVE)
-  roleId          String
-  departmentId    String?
-  role            Role           @relation(fields: [roleId], references: [id])
-  department      Department?    @relation(fields: [departmentId], references: [id])
-  conversations   Conversation[]
-  assignedDeals   Deal[]
-  auditLogs       AuditLog[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                String                  @id @default(cuid())
+  email             String                  @unique
+  name              String
+  passwordHash      String
+  status            UserStatus              @default(ACTIVE)
+  availabilityStatus AgentAvailabilityStatus @default(OFFLINE)
+  roleId            String
+  departmentId      String?
+  role              Role                    @relation(fields: [roleId], references: [id])
+  department        Department?              @relation(fields: [departmentId], references: [id])
+  conversations     Conversation[]
+  assignedDeals     Deal[]
+  auditLogs         AuditLog[]
+  messageTemplates  MessageTemplate[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   @@index([departmentId])
+  @@index([availabilityStatus])
 }
 
 model WhatsappAccount {
@@ -150,6 +167,7 @@ model Conversation {
   assignedToId      String?
   departmentId      String?
   status            ConversationStatus @default(OPEN)
+  priority          ConversationPriority @default(NORMAL)
   lastMessageAt     DateTime?
   slaFirstResponseAt DateTime?
   lastInboundAt     DateTime?
@@ -174,6 +192,7 @@ model Department {
   isActive      Boolean        @default(true)
   users         User[]
   conversations Conversation[]
+  messageTemplates MessageTemplate[]
   createdAt     DateTime       @default(now())
 }
 
@@ -321,6 +340,21 @@ model AutomationRun {
   errorMessage   String?
   executedAt     DateTime @default(now())
   rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+}
+
+model MessageTemplate {
+  id          String     @id @default(cuid())
+  name        String
+  content     String
+  departmentId String?
+  createdById  String
+  department   Department? @relation(fields: [departmentId], references: [id])
+  createdBy    User         @relation(fields: [createdById], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([departmentId])
+  @@index([createdById])
 }
 
 model AuditLog {

@@ -1,8 +1,14 @@
-import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { AgentAvailabilityStatus } from '@prisma/client';
 
 export class UpdateAgentStatusDto {
   @IsBoolean()
   online!: boolean;
+}
+
+export class UpdateAvailabilityStatusDto {
+  @IsEnum(AgentAvailabilityStatus)
+  availabilityStatus!: AgentAvailabilityStatus;
 }
 
 export class CreateAgentDto {

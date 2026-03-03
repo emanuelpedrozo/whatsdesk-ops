@@ -28,6 +28,7 @@ export class OperationsService {
           name: true,
           email: true,
           status: true,
+          availabilityStatus: true,
           department: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'asc' },
@@ -233,6 +234,74 @@ export class OperationsService {
       atendimentosPorAgente,
       atendimentosPorDepartamento,
       slaPorConversa,
+    };
+  }
+
+  async getAgentMetrics(agentId: string, dateFrom?: Date, dateTo?: Date) {
+    const from = dateFrom ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Últimos 30 dias
+    const to = dateTo ?? new Date();
+
+    const [totalConversations, resolvedConversations, conversations] = await Promise.all([
+      this.prisma.conversation.count({
+        where: {
+          assignedToId: agentId,
+          createdAt: { gte: from, lte: to },
+        },
+      }),
+      this.prisma.conversation.count({
+        where: {
+          assignedToId: agentId,
+          status: 'RESOLVED',
+          createdAt: { gte: from, lte: to },
+        },
+      }),
+      this.prisma.conversation.findMany({
+        where: {
+          assignedToId: agentId,
+          createdAt: { gte: from, lte: to },
+        },
+        select: {
+          slaFirstResponseAt: true,
+          lastInboundAt: true,
+          lastMessageAt: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    // Calcular tempo médio de primeira resposta
+    const firstResponseTimes = conversations
+      .filter((c) => c.slaFirstResponseAt && c.lastInboundAt)
+      .map((c) => {
+        const responseTime = new Date(c.slaFirstResponseAt!).getTime() - new Date(c.lastInboundAt!).getTime();
+        return responseTime / 1000 / 60; // em minutos
+      });
+    const avgFirstResponseTime = firstResponseTimes.length > 0
+      ? Math.round(firstResponseTimes.reduce((a, b) => a + b, 0) / firstResponseTimes.length)
+      : 0;
+
+    // Calcular tempo médio de resolução
+    const resolvedConvs = conversations.filter((c) => c.status === 'RESOLVED');
+    const resolutionTimes = resolvedConvs
+      .filter((c) => c.lastInboundAt && c.updatedAt)
+      .map((c) => {
+        const resolutionTime = new Date(c.updatedAt).getTime() - new Date(c.lastInboundAt!).getTime();
+        return resolutionTime / 1000 / 60; // em minutos
+      });
+    const avgResolutionTime = resolutionTimes.length > 0
+      ? Math.round(resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length)
+      : 0;
+
+    return {
+      agentId,
+      period: { from, to },
+      totalConversations,
+      resolvedConversations,
+      resolutionRate: totalConversations > 0 ? (resolvedConversations / totalConversations) * 100 : 0,
+      avgFirstResponseTimeMinutes: avgFirstResponseTime,
+      avgResolutionTimeMinutes: avgResolutionTime,
     };
   }
 }

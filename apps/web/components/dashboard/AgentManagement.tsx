@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { apiFetch } from '../api';
+import { apiFetch, getJson } from '../api';
 import type { Agent, Department } from '../types';
 import { validateEmail, validateRequired, validatePassword } from '../../utils/validation';
 import { Button } from '../ui/Button';
@@ -87,6 +87,27 @@ export function AgentManagement({ agents, departments, onRefresh }: AgentManagem
     });
   };
 
+  const handleUpdateAvailability = async (agent: Agent, status: 'AVAILABLE' | 'BUSY' | 'AWAY' | 'OFFLINE') => {
+    await withLoading(async () => {
+      try {
+        await apiFetch(`/agents/${agent.id}/availability`, {
+          method: 'PATCH',
+          body: JSON.stringify({ availabilityStatus: status }),
+        });
+        const statusLabels: Record<string, string> = {
+          AVAILABLE: 'Disponível',
+          BUSY: 'Ocupado',
+          AWAY: 'Ausente',
+          OFFLINE: 'Offline',
+        };
+        toastManager.show(`Status alterado para ${statusLabels[status]}`, 'success');
+        await onRefresh();
+      } catch (error: any) {
+        toastManager.show(error.message || 'Erro ao alterar disponibilidade', 'error');
+      }
+    });
+  };
+
   return (
     <article className="panel">
       <h2>Gestão de Atendentes</h2>
@@ -137,20 +158,69 @@ export function AgentManagement({ agents, departments, onRefresh }: AgentManagem
       </form>
 
       <div className="rows">
-        {agents.map((agent) => (
-          <div key={agent.id} className="row row-action">
-            <span>{agent.name}</span>
-            <span>{agent.department?.name ?? 'Sem departamento'}</span>
-            <span>{agent.status === 'ACTIVE' ? 'Online' : 'Offline'}</span>
-            <Button
-              variant={agent.status === 'ACTIVE' ? 'neutral' : 'success'}
-              onClick={() => handleToggleStatus(agent)}
-              loading={loading}
-            >
-              {agent.status === 'ACTIVE' ? 'Colocar offline' : 'Colocar online'}
-            </Button>
-          </div>
-        ))}
+        {agents.map((agent) => {
+          const availabilityStatus = agent.availabilityStatus || 'OFFLINE';
+          const statusLabels: Record<string, string> = {
+            AVAILABLE: 'Disponível',
+            BUSY: 'Ocupado',
+            AWAY: 'Ausente',
+            OFFLINE: 'Offline',
+          };
+          const statusColors: Record<string, string> = {
+            AVAILABLE: 'success',
+            BUSY: 'warning',
+            AWAY: 'neutral',
+            OFFLINE: 'danger',
+          };
+
+          return (
+            <div key={agent.id} className="row row-action">
+              <span>{agent.name}</span>
+              <span>{agent.department?.name ?? 'Sem departamento'}</span>
+              <span>{agent.status === 'ACTIVE' ? 'Online' : 'Offline'}</span>
+              <select
+                value={availabilityStatus}
+                onChange={(e) =>
+                  handleUpdateAvailability(agent, e.target.value as 'AVAILABLE' | 'BUSY' | 'AWAY' | 'OFFLINE')
+                }
+                disabled={loading}
+                style={{ minWidth: '120px' }}
+              >
+                <option value="AVAILABLE">Disponível</option>
+                <option value="BUSY">Ocupado</option>
+                <option value="AWAY">Ausente</option>
+                <option value="OFFLINE">Offline</option>
+              </select>
+              <Button
+                variant={agent.status === 'ACTIVE' ? 'neutral' : 'success'}
+                onClick={() => handleToggleStatus(agent)}
+                loading={loading}
+              >
+                {agent.status === 'ACTIVE' ? 'Colocar offline' : 'Colocar online'}
+              </Button>
+              <Button
+                variant="neutral"
+                onClick={async () => {
+                  try {
+                    const metrics = await getJson(`/operations/agent/${agent.id}/metrics`);
+                    alert(
+                      `Métricas de ${agent.name}:\n` +
+                      `Total de conversas: ${metrics.totalConversations}\n` +
+                      `Resolvidas: ${metrics.resolvedConversations}\n` +
+                      `Taxa de resolução: ${metrics.resolutionRate.toFixed(1)}%\n` +
+                      `Tempo médio de resposta: ${metrics.avgFirstResponseTimeMinutes}min\n` +
+                      `Tempo médio de resolução: ${metrics.avgResolutionTimeMinutes}min`
+                    );
+                  } catch {
+                    toastManager.show('Erro ao carregar métricas', 'error');
+                  }
+                }}
+              >
+                Métricas
+              </Button>
+            </div>
+          );
+        })}
       </div>
     </article>
   );

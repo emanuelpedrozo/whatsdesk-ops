@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UserStatus } from '@prisma/client';
+import { AgentAvailabilityStatus, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
-import { CreateAgentDto } from './dto';
+import { CreateAgentDto, UpdateAvailabilityStatusDto } from './dto';
 import { AuditService } from '../audit/audit.service';
 
 @Injectable()
@@ -17,6 +17,7 @@ export class AgentsService {
         name: true,
         email: true,
         status: true,
+        availabilityStatus: true,
         role: { select: { name: true } },
         department: { select: { id: true, name: true } },
       },
@@ -43,6 +44,39 @@ export class AgentsService {
     return updated;
   }
 
+  async updateAvailabilityStatus(
+    id: string,
+    dto: UpdateAvailabilityStatusDto,
+    actorUserId?: string,
+  ) {
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Atendente nao encontrado');
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { availabilityStatus: dto.availabilityStatus },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        status: true,
+        availabilityStatus: true,
+        role: { select: { name: true } },
+        department: { select: { id: true, name: true } },
+      },
+    });
+
+    await this.audit.log(
+      'agent.availability.updated',
+      'user',
+      id,
+      actorUserId,
+      existing,
+      updated,
+    );
+    return updated;
+  }
+
   async create(dto: CreateAgentDto, actorUserId?: string) {
     const role = await this.prisma.role.upsert({
       where: { name: 'Atendente' },
@@ -60,12 +94,14 @@ export class AgentsService {
         roleId: role.id,
         departmentId: dto.departmentId,
         status: UserStatus.ACTIVE,
+        availabilityStatus: AgentAvailabilityStatus.OFFLINE,
       },
       select: {
         id: true,
         name: true,
         email: true,
         status: true,
+        availabilityStatus: true,
         role: { select: { name: true } },
         department: { select: { id: true, name: true } },
       },

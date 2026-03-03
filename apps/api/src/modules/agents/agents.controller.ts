@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post } from '@nestjs/common';
 import { AgentsService } from './agents.service';
-import { CreateAgentDto, UpdateAgentStatusDto } from './dto';
+import { CreateAgentDto, UpdateAgentStatusDto, UpdateAvailabilityStatusDto } from './dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, CurrentUserPayload } from '../auth/current-user.decorator';
 
@@ -22,6 +22,20 @@ export class AgentsController {
     @CurrentUser() currentUser: CurrentUserPayload,
   ) {
     return this.agents.setOnlineStatus(id, dto.online, currentUser.sub);
+  }
+
+  @Roles('Admin', 'Supervisor', 'Gerente', 'Atendente')
+  @Patch(':id/availability')
+  updateAvailability(
+    @Param('id') id: string,
+    @Body() dto: UpdateAvailabilityStatusDto,
+    @CurrentUser() currentUser: CurrentUserPayload,
+  ) {
+    // Motivo: Atendentes podem atualizar apenas seu próprio status
+    if (currentUser.role === 'Atendente' && id !== currentUser.sub) {
+      throw new ForbiddenException('Voce so pode atualizar seu proprio status');
+    }
+    return this.agents.updateAvailabilityStatus(id, dto, currentUser.sub);
   }
 
   @Roles('Admin', 'Supervisor', 'Gerente')

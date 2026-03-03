@@ -10,6 +10,7 @@ import { OperationsModule } from './modules/operations/operations.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
+import { TemplatesModule } from './modules/templates/templates.module';
 import { JwtAuthGuard } from './modules/common/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/common/guards/roles.guard';
 import { QrModule } from './modules/qr/qr.module';
@@ -26,6 +27,7 @@ import { QrModule } from './modules/qr/qr.module';
     WebhooksModule,
     OperationsModule,
     AgentsModule,
+    TemplatesModule,
     QrModule,
   ],
   providers: [

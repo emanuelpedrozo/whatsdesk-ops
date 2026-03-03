@@ -10,4 +10,14 @@ export class AuditService {
       data: { action, entityType, entityId, actorUserId, before: before as never, after: after as never },
     });
   }
+
+  async getHistory(entityType: string, entityId: string) {
+    return this.prisma.auditLog.findMany({
+      where: { entityType, entityId },
+      include: {
+        actor: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

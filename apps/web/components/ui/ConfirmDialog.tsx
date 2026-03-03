@@ -12,6 +12,7 @@ type ConfirmDialogProps = {
   variant?: 'danger' | 'primary';
   onConfirm: () => void;
   onCancel: () => void;
+  children?: ReactNode;
 };
 
 export function ConfirmDialog({
@@ -37,7 +38,8 @@ export function ConfirmDialog({
       >
         <h3 className="text-xl font-bold mb-4">{title}</h3>
         <p className="text-gray-700 mb-6">{message}</p>
-        <div className="flex gap-3 justify-end">
+        {children}
+        <div className="flex gap-3 justify-end" style={{ marginTop: '16px' }}>
           <Button variant="outline" onClick={onCancel}>
             {cancelText}
           </Button>

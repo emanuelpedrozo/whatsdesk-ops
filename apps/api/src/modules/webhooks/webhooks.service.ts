@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, forwardRef, Inject } from '@nestjs/common';
 import { MessageDirection, MessageStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { AuditService } from '../audit/audit.service';
+import { ConversationsService } from '../conversations/conversations.service';
 import { WhatsappWebhookDto } from './dto';
 
 @Injectable()
@@ -11,6 +12,8 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
     private readonly audit: AuditService,
+    @Inject(forwardRef(() => ConversationsService))
+    private readonly conversations: ConversationsService,
   ) {}
 
   async processWhatsappWebhook(payload: WhatsappWebhookDto) {
@@ -89,6 +92,14 @@ export class WebhooksService {
 
         this.realtime.emitMessageCreated(message);
         this.realtime.emitConversationUpdated(conversation);
+
+        // Motivo: Tentar auto-atribuir conversa se ainda não estiver atribuída
+        if (!conversation.assignedToId && conversation.status === 'OPEN') {
+          // Executar de forma assíncrona para não bloquear o webhook
+          this.conversations.autoAssign(conversation.id).catch((err) => {
+            console.error('Erro ao auto-atribuir conversa:', err);
+          });
+        }
       }
     }
 

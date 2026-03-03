@@ -38,6 +38,18 @@ export class ListConversationsQuery {
   departmentId?: string;
 
   @IsOptional()
+  @IsString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsString()
+  dateTo?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  onlyMine?: boolean;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -49,4 +61,9 @@ export class ListConversationsQuery {
   @Min(1)
   @Max(100)
   limit?: number = 20;
+}
+
+export class UpdateConversationPriorityDto {
+  @IsString()
+  priority!: string;
 }

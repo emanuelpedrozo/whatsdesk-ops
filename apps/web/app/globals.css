@@ -124,7 +124,23 @@ body {
 }
 
 .row-queue {
-  grid-template-columns: 2fr 1.1fr 0.8fr 100px 100px 90px;
+  grid-template-columns: 2fr 1.5fr 1fr 1.5fr 80px 140px 100px 100px;
+  transition: background-color 0.2s;
+}
+
+.row-queue.row-new {
+  background-color: #fff3cd;
+  border-left: 3px solid #ffc107;
+}
+
+.row-queue.row-my-conversation {
+  background-color: #d4edda;
+  border-left: 3px solid #28a745;
+}
+
+.row-queue.row-new.row-my-conversation {
+  background-color: #d1ecf1;
+  border-left: 3px solid #17a2b8;
 }
 
 .row-queue button {
@@ -143,6 +159,11 @@ body {
 .row-queue button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.row-selected {
+  background-color: #e3f2fd !important;
+  border-left: 3px solid #2196f3 !important;
 }
 
 .row-action button {

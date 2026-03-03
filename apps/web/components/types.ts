@@ -1,6 +1,7 @@
 export type Conversation = {
   id: string;
   status: 'OPEN' | 'PENDING' | 'RESOLVED' | 'CLOSED';
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   lastMessageAt: string | null;
   contact: { id: string; name: string | null; phone: string };
   assignedTo?: { id: string; name: string } | null;
@@ -8,9 +9,20 @@ export type Conversation = {
   messages: Array<{ id: string; content: string | null; createdAt: string }>;
 };
 
+export type MessageTemplate = {
+  id: string;
+  name: string;
+  content: string;
+  departmentId?: string | null;
+  department?: { id: string; name: string } | null;
+  createdBy?: { id: string; name: string } | null;
+  createdAt: string;
+};
+
 export type ConversationDetail = {
   id: string;
   status: 'OPEN' | 'PENDING' | 'RESOLVED' | 'CLOSED';
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   contact: { id: string; name: string | null; phone: string };
   assignedTo?: { id: string; name: string } | null;
   department?: { id: string; name: string } | null;
@@ -27,6 +39,7 @@ export type Agent = {
   name: string;
   email: string;
   status: 'ACTIVE' | 'INACTIVE';
+  availabilityStatus?: 'AVAILABLE' | 'BUSY' | 'AWAY' | 'OFFLINE';
   department?: { id: string; name: string } | null;
 };
 
