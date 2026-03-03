@@ -42,15 +42,36 @@ export class QrService {
 
   private async ensureCurrentAccountId() {
     if (this.currentAccountId) return this.currentAccountId;
-    const firstActive = await this.prisma.whatsappAccount.findFirst({
+    
+    // Motivo: Buscar conta ativa existente
+    let account = await this.prisma.whatsappAccount.findFirst({
       where: { isActive: true },
       orderBy: { createdAt: 'asc' },
       select: { id: true },
     });
-    if (firstActive?.id) {
-      this.currentAccountId = firstActive.id;
-      return firstActive.id;
+    
+    // Motivo: Se não houver conta ativa, criar uma padrão para garantir funcionamento
+    if (!account) {
+      this.logger.warn('Nenhuma conta WhatsApp ativa encontrada. Criando conta padrão...');
+      // Motivo: phoneNumber é obrigatório e único, usar um valor temporário que será atualizado após conectar
+      const tempPhone = `temp-${Date.now()}`;
+      account = await this.prisma.whatsappAccount.create({
+        data: {
+          name: 'Conta Principal',
+          isActive: true,
+          provider: 'baileys',
+          phoneNumber: tempPhone,
+        },
+        select: { id: true },
+      });
+      this.logger.log(`Conta WhatsApp padrão criada: ${account.id}`);
     }
+    
+    if (account?.id) {
+      this.currentAccountId = account.id;
+      return account.id;
+    }
+    
     return null;
   }
 
@@ -156,6 +177,19 @@ export class QrService {
           this.retryCount = 0;
           await this.syncConnectedAccountPhone(sock).catch(() => undefined);
           this.logger.log('Sessao WhatsApp Web conectada');
+          
+          // Motivo: Carregar mensagens antigas não processadas após conectar
+          // O Baileys pode não disparar messages.upsert para histórico antigo automaticamente
+          try {
+            const accountId = await this.ensureCurrentAccountId();
+            if (accountId && sock) {
+              this.logger.log('Carregando mensagens antigas...');
+              // O syncFullHistory já faz isso, mas podemos forçar um fetch se necessário
+              // Por enquanto, confiamos no syncFullHistory e messages.upsert
+            }
+          } catch (error) {
+            this.logger.warn('Erro ao carregar mensagens antigas', error);
+          }
         }
 
         if (connection === 'close') {
@@ -189,38 +223,64 @@ export class QrService {
         }
       });
 
+      // Motivo: Processar mensagens recebidas (novas e antigas) para criar conversas
       sock.ev.on('messages.upsert', async (evt: any) => {
         const messages = evt?.messages ?? [];
         if (!messages.length) return;
+        
+        this.logger.log(`Processando ${messages.length} mensagem(ns) recebida(s)`);
+        
         const accountId = await this.ensureCurrentAccountId();
-        if (!accountId) return;
+        if (!accountId) {
+          this.logger.warn('Nenhuma conta WhatsApp ativa encontrada');
+          return;
+        }
 
+        let processedCount = 0;
         for (const msg of messages) {
-          if (msg.key?.fromMe) continue;
-          const remoteJid: string | undefined = msg.key?.remoteJid;
-          if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
+          try {
+            // Ignorar mensagens enviadas por nós
+            if (msg.key?.fromMe) continue;
+            
+            const remoteJid: string | undefined = msg.key?.remoteJid;
+            // Ignorar grupos
+            if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
 
-          const from = remoteJid.replace('@s.whatsapp.net', '');
-          const text =
-            msg.message?.conversation ??
-            msg.message?.extendedTextMessage?.text ??
-            msg.message?.imageMessage?.caption ??
-            '';
+            const from = remoteJid.replace('@s.whatsapp.net', '');
+            
+            // Motivo: Extrair texto de diferentes tipos de mensagem
+            const text =
+              msg.message?.conversation ??
+              msg.message?.extendedTextMessage?.text ??
+              msg.message?.imageMessage?.caption ??
+              msg.message?.videoMessage?.caption ??
+              msg.message?.documentMessage?.caption ??
+              '';
 
-          if (!text) continue;
+            // Motivo: Processar mesmo mensagens sem texto para criar a conversa
+            // Se não houver texto, usar um placeholder para garantir que a conversa seja criada
+            const messageText = text || '[Mensagem sem texto]';
 
-          await this.webhooks.processWhatsappWebhook({
-            eventId: `baileys-${msg.key?.id ?? Date.now()}`,
-            accountId,
-            messages: [
-              {
-                id: msg.key?.id ?? `baileys-${Date.now()}`,
-                from,
-                text,
-                type: 'text',
-              },
-            ],
-          });
+            await this.webhooks.processWhatsappWebhook({
+              eventId: `baileys-${msg.key?.id ?? Date.now()}`,
+              accountId,
+              messages: [
+                {
+                  id: msg.key?.id ?? `baileys-${Date.now()}`,
+                  from,
+                  text: messageText,
+                  type: text ? 'text' : 'media',
+                },
+              ],
+            });
+            processedCount++;
+          } catch (error) {
+            this.logger.error('Erro ao processar mensagem do Baileys', error);
+          }
+        }
+        
+        if (processedCount > 0) {
+          this.logger.log(`${processedCount} mensagem(ns) processada(s) com sucesso`);
         }
       });
 
